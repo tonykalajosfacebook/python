@@ -10,15 +10,10 @@ public class Sanitizer {
     // Oracle SQL whitelist pattern (preserves comments/spaces)
     private static final String ORACLE_SQL_PATTERN = 
         "^[a-zA-Z0-9_\\s\\/.,:;()@=+\\-\\\\\"'’]$";
-
-    static {
-        // Initialize ESAPI validation rule for SQL
-        ESAPI.validator().addRule("OracleSQL", 
-            new RegexValidationRule("OracleSQL", 
-                Pattern.compile(ORACLE_SQL_PATTERN, Pattern.CASE_INSENSITIVE)
-            )
-        );
-    }
+    
+    // Use a precompiled pattern for better performance
+    private static final Pattern ORACLE_SQL_PATTERN_COMPILED = 
+        Pattern.compile(ORACLE_SQL_PATTERN, Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
     public String sql(String input) {
         try {
@@ -26,7 +21,7 @@ public class Sanitizer {
             String canonical = ESAPI.encoder().canonicalize(input);
             
             // Step 2: Validate against Oracle-safe pattern
-            if (!ESAPI.validator().isValidInput("SQL", canonical, "OracleSQL", 10000)) {
+            if (!isValidOracleSql(canonical)) {
                 throw new SecurityException("Invalid SQL characters detected");
             }
             
@@ -41,6 +36,10 @@ public class Sanitizer {
         }
     }
 
+    private boolean isValidOracleSql(String input) {
+        return ORACLE_SQL_PATTERN_COMPILED.matcher(input).matches();
+    }
+
     public String ldap(String input) {
         try {
             // Step 1: Decode nested encodings
@@ -51,9 +50,10 @@ public class Sanitizer {
             
         } catch (EncodingException e) {
             throw new SecurityException("LDAP sanitization failed", e);
-        }
-    }
+        }
+    }
 }
+
 
 
 ESAPI.properties
